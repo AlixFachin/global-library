@@ -1,9 +1,9 @@
-import { SignIn, SignOutButton, useUser } from "@clerk/nextjs";
+import { SignIn, SignInButton, SignOutButton, useUser } from "@clerk/nextjs";
 import Head from "next/head";
 import { api } from "~/utils/api";
 
 export default function Home() {
-  const hello = api.example.hello.useQuery({ text: "from tRPC" });
+  const { data: bookData } = api.books.getAll.useQuery();
 
   const user = useUser();
   console.log(user);
@@ -16,9 +16,19 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c]">
-        <div className="bg-slate-400 p-4">
-          {!user.isSignedIn && <SignIn />}
+        {/* Header */}
+        <div className="mb-4 bg-slate-400 p-4">
+          {!user.isSignedIn && <SignInButton />}
           {!!user.isSignedIn && <SignOutButton />}
+        </div>
+        {/* Book List */}
+        <div className="flex flex-col bg-slate-400 p-4">
+          <h2 className="p-2 text-3xl">Book List</h2>
+          {bookData?.map((book) => (
+            <div key={book.id} className="rounded-sm bg-slate-600 p-2 text-2xl">
+              {book.title}
+            </div>
+          ))}
         </div>
       </main>
     </>
