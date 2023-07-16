@@ -1,7 +1,8 @@
 import { SignInButton, SignOutButton, useUser } from "@clerk/nextjs";
 import Head from "next/head";
-import { RouterOutputs, api } from "~/utils/api";
-import { SubmitHandler, useForm } from "react-hook-form";
+import { type RouterOutputs, api } from "~/utils/api";
+import { type SubmitHandler, useForm } from "react-hook-form";
+import Image from "next/image";
 
 // Components
 
@@ -32,12 +33,27 @@ const AddBook = () => {
     author: string;
   };
 
-  const { register, handleSubmit } = useForm<PersonalBook>();
-  const onSubmit: SubmitHandler<PersonalBook> = (data) => console.log(data);
+  const ctx = api.useContext();
+  const { register, handleSubmit, reset: formReset } = useForm<PersonalBook>();
+  const { mutate, isLoading: isPosting } = api.books.create.useMutation({
+    onSuccess: async () => {
+      formReset();
+      await ctx.books.getAll.invalidate();
+    },
+  });
+
+  // in order to force refresh on post, we get the tRPC context
+
+  const onSubmit: SubmitHandler<PersonalBook> = (data) => {
+    void mutate({
+      title: data.title,
+      author: data.author,
+    });
+  };
 
   return (
     <section className="mb-4 flex w-full max-w-3xl flex-col rounded-lg bg-[#FAEDCD] p-4">
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={() => handleSubmit(onSubmit)}>
         <div className="grid w-full max-w-3xl grid-cols-1 gap-2 rounded-lg bg-[#FAEDCD] px-2 sm:grid-cols-2">
           <h2 className="col-span-2 mb-2 text-3xl">Add a book</h2>
           <label>Title</label>
@@ -45,12 +61,14 @@ const AddBook = () => {
             placeholder="My favourite book's title"
             {...register("title")}
             className="rounded-sm border-2 border-slate-300 bg-transparent px-2"
+            disabled={isPosting}
           />
           <label>Author</label>
           <input
             placeholder="My favourite book's author"
             {...register("author")}
             className="rounded-sm border-2 border-slate-300 bg-transparent px-2"
+            disabled={isPosting}
           />
 
           <div className="col-span-2 flex justify-center p-2">
@@ -131,18 +149,15 @@ type BookEnhanced = RouterOutputs["books"]["getAll"][number];
 const BookCard: React.FC<BookEnhanced> = (props) => {
   const { book, firstOwner } = props;
 
-  console.log(
-    "Book Owner URL",
-    firstOwner?.firstname,
-    firstOwner?.profileImageUrl
-  );
-
   return (
     <div className="mb-2 flex w-full flex-col gap-4 border-[1px]">
       <div className="flex flex-wrap items-center gap-2 p-2">
-        <img
+        <Image
           src={firstOwner?.profileImageUrl}
           className="h-10 w-10 rounded-full"
+          width={40}
+          height={40}
+          alt={`${firstOwner.username || "user"} profile picture`}
         />
         <span className="mr-2 text-lg">{book.title}</span>
         <span className="italic">({book.author})</span>
@@ -158,7 +173,7 @@ const MyBookList: React.FC<{ bookList: BookEnhanced[] | undefined }> = ({
     <section className="flex w-full max-w-3xl flex-col rounded-lg bg-[#FAEDCD] p-4">
       <h1 className="mb-2 text-3xl">My Books</h1>
       {!bookList && (
-        <div> Your have no books registered! Click on "Add" to add some! </div>
+        <div> Your have no books registered! Click on Add to add some! </div>
       )}
       {!!bookList &&
         bookList.map((bookWithOwner) => (
@@ -171,10 +186,9 @@ const MyBookList: React.FC<{ bookList: BookEnhanced[] | undefined }> = ({
 // Main Index Page -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 export default function Home() {
+  const { user, isLoaded: isUserLoaded } = useUser();
   const { data: bookData, isLoading: isBookDataLoading } =
     api.books.getAll.useQuery();
-
-  const { user, isLoaded: isUserLoaded } = useUser();
 
   if (!isBookDataLoading && !bookData) {
     return <div>Woops!</div>;
