@@ -3,6 +3,7 @@ import Head from "next/head";
 import { type RouterOutputs, api } from "~/utils/api";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import Image from "next/image";
+import { toast, Toaster } from "react-hot-toast";
 
 // Components
 
@@ -38,18 +39,28 @@ const AddBook = () => {
   const { mutate, isLoading: isPosting } = api.books.create.useMutation({
     onSuccess: async () => {
       formReset();
+      console.log("Success in the mutation!");
       await ctx.books.getAll.invalidate();
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to post! Please retry later");
+      console.log(error.data?.zodError?.fieldErrors.message);
     },
   });
 
   // in order to force refresh on post, we get the tRPC context
 
-  const onSubmit: SubmitHandler<PersonalBook> = (data) => {
+  const onSubmit: SubmitHandler<PersonalBook> = (data, event) => {
+    event?.preventDefault();
     void mutate({
       title: data.title,
       author: data.author,
     });
   };
+
+  if (isPosting) {
+    return <Spinner />;
+  }
 
   return (
     <section className="mb-4 flex w-full max-w-3xl flex-col rounded-lg bg-[#FAEDCD] p-4">
@@ -76,6 +87,7 @@ const AddBook = () => {
               type="submit"
               className="bg-[#CCD5AE] px-4 py-2 text-xl"
               value="Save to DB"
+              disabled={isPosting}
             />
           </div>
         </div>
